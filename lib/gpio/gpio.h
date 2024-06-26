@@ -3,12 +3,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+// Nota: PA13 es SWDIO, PA14 es SWCLK, PB2 es BOOT1
+
 typedef enum HPin{
     PA0 ,PA1 ,PA2 ,PA3 ,
     PA4 ,PA5 ,PA6 ,PA7 ,
     PA8 ,PA9 ,PA10,PA11,
-    PA12,PA13,PA14,PA15,
-    PB0 ,PB1 ,PB2 ,PB3 ,
+    PA12,          PA15,
+    PB0 ,PB1 ,     PB3 ,
     PB4 ,PB5 ,PB6 ,PB7 ,
     PB8 ,PB9 ,PB10,PB11,
     PB12,PB13,PB14,PB15,
@@ -93,6 +95,14 @@ void Pin_conmuta(HPin p);
  */
 void Pin_escribe(HPin p,bool valor);
 
+/* Tiempos medidos:
+ * Para el bus de 5 bits [PB12,PB13,PB14,PB15,PA8]
+ * Bus_lee ~195 ciclos
+ * Bus_escribe ~204 ciclos
+ * Cambio de modo ~114 ciclos
+ * Partiendo de modo escritura, Bus_lee seguido de Bus_escribe ~627 ciclos
+ */
+
 /**
  * @brief Variable que representa un bus paralelo. Siempre debe inicializarse
  * con la macro INICIALIZA_VARIABLE_BUS(<Modo de entrada>,<Modo de salida>,
@@ -114,7 +124,7 @@ typedef struct Bus{
 
 /**
  * @brief Inicializa una variable Bus. Es necesario usar esta macro como
- * inicializador de la variable Bus.
+ * inicializador de la variable Bus. La variable bus tiene que ser static
  * @note static Bus miBus = INICIALIZA_VARIABLE_BUS(PULL_UP,DRENADOR_ABIERTO,
  * S_LENTA,PB12,PB13,PB14,PA8); // lee ~251 ciclos, escribe ~231 ciclos,
  * alternado

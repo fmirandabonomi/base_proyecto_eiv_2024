@@ -32,6 +32,12 @@ inline static HPuerto obtHPuerto(HPin p)
            (p <= PC15)? PC :
                         HPuerto_INVALIDO;
 }
+
+static void configuraPinesJtagComoGpio(void)
+{
+    estableceBits(&RCC->APB2ENR,RCC_APB2ENR_AFIOEN);
+    modificaBits(&AFIO->MAPR,AFIO_MAPR_SWJ_CFG_Msk,AFIO_MAPR_SWJ_CFG_JTAGDISABLE);
+}
 static HPuerto iniciaPuerto(HPin p)
 {
     volatile uint32_t *const APB2ENR = &RCC->APB2ENR;
@@ -39,8 +45,10 @@ static HPuerto iniciaPuerto(HPin p)
     switch(puerto){
     case PA:
         estableceBits(APB2ENR,RCC_APB2ENR_IOPAEN);
+        if (p == PA15) configuraPinesJtagComoGpio();
     break;case PB:
         estableceBits(APB2ENR,RCC_APB2ENR_IOPBEN);
+        if (p == PB3 || p == PB4) configuraPinesJtagComoGpio();
     break;case PC:
         estableceBits(APB2ENR,RCC_APB2ENR_IOPCEN);
     break;default:
@@ -68,9 +76,8 @@ inline static int obtNumero(HPin p)
         [PA0 ] =  0,[PA1 ] =  1,[PA2 ] =  2,[PA3 ] =  3,
         [PA4 ] =  4,[PA5 ] =  5,[PA6 ] =  6,[PA7 ] =  7,
         [PA8 ] =  8,[PA9 ] =  9,[PA10] = 10,[PA11] = 11,
-        [PA12] = 12,[PA13] = 13,[PA14] = 14,[PA15] = 15,
-
-        [PB0 ] =  0,[PB1 ] =  1,[PB2 ] =  2,[PB3 ] =  3,
+        [PA12] = 12,                        [PA15] = 15,
+        [PB0 ] =  0,[PB1 ] =  1,            [PB3 ] =  3,
         [PB4 ] =  4,[PB5 ] =  5,[PB6 ] =  6,[PB7 ] =  7,
         [PB8 ] =  8,[PB9 ] =  9,[PB10] = 10,[PB11] = 11,
         [PB12] = 12,[PB13] = 13,[PB14] = 14,[PB15] = 15,
