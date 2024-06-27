@@ -27,6 +27,10 @@ inline static void estableceBits(volatile uint32_t *registro,uint32_t bits)
 __attribute__((__always_inline__))
 inline static HPuerto obtHPuerto(HPin p)
 {
+  /*                          / <si> si <cond> != 0
+    (<cond> ? <si> : <no>) = <
+                              \ <no> si <cond> == 0
+   */
     return (p <= PA15)? PA :
            (p <= PB15)? PB :
            (p <= PC15)? PC :
@@ -48,7 +52,7 @@ static HPuerto iniciaPuerto(HPin p)
         if (p == PA15) configuraPinesJtagComoGpio();
     break;case PB:
         estableceBits(APB2ENR,RCC_APB2ENR_IOPBEN);
-        if (p == PB3 || p == PB4) configuraPinesJtagComoGpio();
+        if ((p == PB3) || (p == PB4)) configuraPinesJtagComoGpio();
     break;case PC:
         estableceBits(APB2ENR,RCC_APB2ENR_IOPCEN);
     break;default:

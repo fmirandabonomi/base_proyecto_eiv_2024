@@ -27,7 +27,7 @@ typedef enum ModoEntrada{
 }ModoEntrada;
 
 typedef enum ModoSalida{
-    PUSH_PULL,DRENADOR_ABIERTO=0b0100
+    PUSH_PULL=0b0000,DRENADOR_ABIERTO=0b0100
 }ModoSalida;
 typedef enum VelocidadSalida{
     V_BAJA = 0b10,V_MEDIA=0b01,V_ALTA=0b11
