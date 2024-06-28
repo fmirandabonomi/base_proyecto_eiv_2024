@@ -54,21 +54,28 @@ int main(void)
     uint32_t t0=Tempo_obtMilisegundos();
     uint32_t t1=t0;
     enum {D_AVANCE,D_RETROCESO} dir =D_AVANCE;
-    for(unsigned i=0;;++i){
+    unsigned i=0,j=0;
+    for(;;){
         const uint32_t t = Tempo_obtMilisegundos();
         if (t-t0 >= PERIODO_LOOP){
             Pin_conmuta(PIN_LED);
             Bus_escribe(&b1,i);
             t0=t;
-            dir = dir==D_AVANCE? D_RETROCESO : D_AVANCE;
+            ++i;
         }
-        if(t-t1 >= 1){
+        if(t-t1 >= 5){
             if (dir==D_AVANCE){
                 PAP_avanza(&pap);
             }else{
                 PAP_retrocede(&pap);
             }
             t1=t;
+            if(j==4095){ // 4096 pasos es un giro en el 28BYJ-48 5V
+                dir = dir==D_AVANCE? D_RETROCESO : D_AVANCE;
+                j=0;
+            }else{
+                j++;
+            }
         }
     }
     return 0;
