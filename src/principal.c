@@ -8,8 +8,8 @@ static void Parpadeo_ejecuta(Accion *a);
 static struct Parpadeo{
     Accion accion;
     uint32_t t0;
-    uint32_t periodo;
-}parpadeo = {.accion.ejecuta=Parpadeo_ejecuta, .periodo = PERIODO_INT};
+    uint32_t semiperiodo;
+}parpadeo = {.accion.ejecuta=&Parpadeo_ejecuta, .semiperiodo = PERIODO_INT};
 
 int main(void)
 {
@@ -30,7 +30,7 @@ static void Parpadeo_ejecuta(Accion *a)
 {
     struct Parpadeo *const p = (struct Parpadeo*)a; 
     const uint32_t t = Tempo_obtMilisegundos();
-    if ( t - p->t0 >= p->periodo){
+    if ( t - p->t0 >= p->semiperiodo){
         Pin_conmuta(PIN_LED);
         p->t0 = t;
     }
