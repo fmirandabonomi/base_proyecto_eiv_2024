@@ -1,5 +1,6 @@
 #include "gpio.h"
 #include "tempo_ms.h"
+#include "tempo_hw.h"
 
 enum {PERIODO_LOOP = 800, PERIODO_INT = 500};
 
