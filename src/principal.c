@@ -1,7 +1,8 @@
 #include "gpio.h"
+#include "tempo_hw.h"
 #include "tempo_ms.h"
 
-enum {PERIODO_LOOP = 1300, PERIODO_INT = 800};
+enum {PERIODO_INT = 800};
 
 static void Parpadeo_ejecuta(Accion *a);
 
@@ -41,41 +42,42 @@ void PAP_avanza(PasoAPaso *pap);
 
 int main(void)
 {
+    enum{T_ENCODER=THW3};
     static Bus conexionMotor = INICIALIZA_VARIABLE_BUS(PULL_UP,PUSH_PULL,V_BAJA,
                       PB6,PB7,PB8,PB9);
-    static Bus b1 = INICIALIZA_VARIABLE_BUS(FLOTANTE,PUSH_PULL,V_BAJA,
-        PA3,PA4,PA5,PA6);
     static PasoAPaso pap;
 
-    PAP_inicia(&pap,&conexionMotor,true);
     Tempo_inicializa();
     Tempo_ponAccionMilisegundo(&parpadeo.accion);
+
+    PAP_inicia(&pap,&conexionMotor,true);
+    
     Pin_configuraSalida(PIN_LED,PUSH_PULL,V_BAJA);
-    uint32_t t0=Tempo_obtMilisegundos();
-    uint32_t t1=t0;
-    enum {D_AVANCE,D_RETROCESO} dir =D_AVANCE;
-    unsigned i=0,j=0;
+
+    Pin_configuraEntrada(PA6,PULL_UP); // Timer 3 canal 1
+    Pin_configuraEntrada(PA7,PULL_UP); // Timer 3 canal 2
+    TempoHW_configModoEncoder(T_ENCODER,ME_T1,10000,FE_LARGO,Polaridades_NN,2);
+    TempoHW_enciendeContador(T_ENCODER);
+    
+    uint16_t p0 = TempoHW_obtCuenta(T_ENCODER);
+    uint32_t t0 = Tempo_obtMilisegundos();
+    int diferencia = 0;
     for(;;){
-        const uint32_t t = Tempo_obtMilisegundos();
-        if (t-t0 >= PERIODO_LOOP){
-            Pin_conmuta(PIN_LED);
-            Bus_escribe(&b1,i);
-            t0=t;
-            ++i;
+        const uint16_t p = TempoHW_obtCuenta(T_ENCODER);
+        const uint32_t t = Tempo_obtMilisegundos(); 
+        if (p!= p0){
+            diferencia += 16*(int16_t)(p-p0);
+            p0=p;
         }
-        if(t-t1 >= 5){
-            if (dir==D_AVANCE){
+        if(t-t0 >= 5 && diferencia != 0){
+            if (diferencia > 0){
                 PAP_avanza(&pap);
+                --diferencia;
             }else{
                 PAP_retrocede(&pap);
+                ++diferencia;
             }
-            t1=t;
-            if(j==4095){ // 4096 pasos es un giro en el 28BYJ-48 5V
-                dir = dir==D_AVANCE? D_RETROCESO : D_AVANCE;
-                j=0;
-            }else{
-                j++;
-            }
+            t0=t;
         }
     }
     return 0;
