@@ -1,6 +1,7 @@
 #include "gpio.h"
 #include "tempo_hw.h"
 #include "tempo_ms.h"
+#include "paso_a_paso.h"
 
 enum {PERIODO_INT = 800};
 
@@ -13,44 +14,17 @@ static struct Parpadeo{
 }parpadeo = {.accion.ejecuta=&Parpadeo_ejecuta, .semiperiodo = PERIODO_INT};
 
 
-typedef struct PasoAPaso{
-    Bus *conexion;
-    unsigned cuenta;
-    bool medioPaso;
-}PasoAPaso;
-
-/**
- * @brief Inicializa control de motor paso a paso
- * 
- * @param pap El motor
- * @param bus El bus de conexion (4 bit)
- * @param medioPaso Secuencia de medio paso si verdadero, paso completo si falso
- */
-void PAP_inicia(PasoAPaso *pap, Bus *bus, bool medioPaso);
-/**
- * @brief Avanza un motor paso a paso en un paso
- * 
- * @param pap El motor
- */
-void PAP_retrocede(PasoAPaso *pap);
-/**
- * @brief Retrocede un motor paso a paso en un paso
- * 
- * @param pap El motor
- */
-void PAP_avanza(PasoAPaso *pap);
+static void salidaPAP(int abcd);
 
 int main(void)
 {
     enum{T_ENCODER=THW3};
-    static Bus conexionMotor = INICIALIZA_VARIABLE_BUS(PULL_UP,PUSH_PULL,V_BAJA,
-                      PB6,PB7,PB8,PB9);
-    static PasoAPaso pap;
+    PAP pap;
 
     Tempo_inicializa();
     Tempo_ponAccionMilisegundo(&parpadeo.accion);
 
-    PAP_inicia(&pap,&conexionMotor,true);
+    PAP_inicializa(&pap,salidaPAP,true);
     
     Pin_configuraSalida(PIN_LED,PUSH_PULL,V_BAJA);
 
@@ -94,35 +68,10 @@ static void Parpadeo_ejecuta(Accion *a)
 }
 
 
-static const uint8_t secuenciaMedioPaso[8] = {
-    0b1000,0b1100,
-    0b0100,0b0110,
-    0b0010,0b0011,
-    0b0001,0b1001
-};
-
-
-static void PAP_actualiza(PasoAPaso *pap)
+static void salidaPAP(int abcd)
 {
-    unsigned const valor = secuenciaMedioPaso[pap->cuenta & 0x7];
-    Bus_escribe(pap->conexion,valor);
-}
+    static Bus conexionMotor = INICIALIZA_VARIABLE_BUS(PULL_UP,PUSH_PULL,V_BAJA,
+                    PB6,PB7,PB8,PB9);
 
-void PAP_inicia(PasoAPaso *pap, Bus *bus, bool medioPaso)
-{
-    pap->conexion  = bus;
-    pap->medioPaso = medioPaso;
-    pap->cuenta    = 0;
-    PAP_actualiza(pap);
-}
-
-void PAP_retrocede(PasoAPaso *pap)
-{
-    pap->cuenta -= pap->medioPaso ? 1:2;
-    PAP_actualiza(pap);    
-}
-void PAP_avanza(PasoAPaso *pap)
-{
-    pap->cuenta += pap->medioPaso ? 1:2;
-    PAP_actualiza(pap);
+    Bus_escribe(&conexionMotor,abcd);
 }
