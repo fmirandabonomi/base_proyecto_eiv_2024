@@ -9,7 +9,9 @@ typedef enum HTempoHW{
 #define TempoHW_ERROR_CONFIG UINT32_MAX
 
 /**
- * @brief Configura la frecuencia de reloj de un temporizador
+ * @brief Configura la frecuencia de reloj de un temporizador. Si el contador
+ * estaba encendido continúa encendido, caso contrario debe encenderse con
+ * TempoHW_enciendeContador
  * 
  * @param tempo El temporizador
  * @param frec La frecuencia en Hz
@@ -51,21 +53,46 @@ typedef enum Polaridades{
     Polaridades_NN = 0b11,
     Polaridades_NO_VALIDO = 0b100
 }Polaridades;
+
 /**
  * @brief Configura un temporizador en modo de lectura de encoder de cuadratura.
  * Implica configurar como entrada los dos primeros canales de
- * captura/comparación.
+ * captura/comparación. Luego debe activarse el timer con
+ * TempoHW_enciendeContador
  * 
  * @param tempo El temporizador 
  * @param m El modo de conteo
- * @param fs La frecuencia de muestreo de las señales del encoder
+ * @param fs La frecuencia de muestreo deseada para las señales del encoder (es
+ * indicativa, la frecuencia realmente obtenida será retornada por la función si
+ * la configuración fue exitosa)
  * @param filt El filtro de entrada a utilizar
  * @param pol Polaridades de las señales del encoder
  * @retval TempoHW_ERROR_CONFIG si ocurrió un error de configuración 
- * @retval La frecuencia de muestreo configurada si la configuración fue
+ * @retval La frecuencia de muestreo efectiva si la configuración fue
  * correcta
  */
-uint32_t TempoHW_configModoEncoder(HTempoHW tempo,ModoEncoder m,uint32_t fs, FiltroEntrada filt, Polaridades pol);
+uint32_t TempoHW_configModoEncoder(HTempoHW tempo,ModoEncoder m,uint32_t fs, FiltroEntrada filt, Polaridades pol,uint16_t pasosPorCuenta);
+
+
+/**
+ * @brief Enciende el contador del periférico temporizador
+ * 
+ * @param tempo El temporizador
+ * @retval TempoHW_ERROR_CONFIG si ocurrió un error 
+ * @retval 0 si fue encendido
+ */
+uint32_t TempoHW_enciendeContador(HTempoHW tempo);
+
+
+/**
+ * @brief Obtiene la cuenta actual del contador de un temporizador
+ * 
+ * @param tempo El temporizador
+ * @retval TempoHW_ERROR_CONFIG si ocurrió un error
+ * @retval Número de 0 a 65535, cuenta actual del temporizador (16 bit) 
+ */
+uint32_t TempoHW_obtCuenta(HTempoHW tempo);
+
 
 
 #endif // TEMPO_HW_H

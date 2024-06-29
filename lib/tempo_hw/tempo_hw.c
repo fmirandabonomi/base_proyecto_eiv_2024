@@ -80,10 +80,18 @@ uint32_t TempoHW_configReloj(const HTempoHW tempo,const uint32_t frec)
     return frecuenciaTimer;
 }
 
+static uint8_t exponenteDivisorMasCercano(const uint32_t divisorOptimo){
+    const uint8_t exponente = 32 - __CLZ(divisorOptimo);
+    const uint32_t v1 = (uint32_t)1 << exponente; 
+    const uint32_t v2 = (uint32_t)1 << (exponente+1);
+    const uint32_t err1 = divisorOptimo - v1;
+    const uint32_t err2 = v2 - divisorOptimo;
+    return (err1<err2) ? exponente : exponente + 1;
+}
 
 uint32_t TempoHW_configModoEncoder(
     HTempoHW tempo, ModoEncoder m,
-    uint32_t fs, FiltroEntrada filt, Polaridades pol)
+    uint32_t fs, FiltroEntrada filt, Polaridades pol, uint16_t pasosPorCuenta)
 {
     enum{
         CKD_DIV1 = 0b00 << TIM_CR1_CKD_Pos,
@@ -95,21 +103,81 @@ uint32_t TempoHW_configModoEncoder(
     const uint32_t frecuenciaBase = relojTimer(tempo);
     TIM_TypeDef *const regTempo = registrosTimer(tempo);
     uint32_t frecuenciaMuestreo;
-    if (!regTempo) return TempoHW_ERROR_CONFIG;
-    uint32_t polaridades = (((pol>>1) & 1) << TIM_CCER_CC1P_Pos )
-                          |((pol & 1) << TIM_CCER_CC2P_Pos);
-    modificaBits(&regTempo->CCER,MASCARA_HAB_Y_POL,polaridades);
-    uint32_t div_dts = 0;
-    uint32_t div_samp = 0;
+    if (!regTempo | !pasosPorCuenta) return TempoHW_ERROR_CONFIG;
+    enciendeRelojPeriferico(tempo);
+
+    const uint32_t polaridades = (((pol>>1) & 1) << TIM_CCER_CC1P_Pos )
+                                |((pol & 1) << TIM_CCER_CC2P_Pos);
+    uint32_t expDivDts = 0;
+    uint32_t expDivSamp = 0;
+    
+    const uint32_t divisorOptimo = (frecuenciaBase + fs/2)/fs;
+    uint8_t exponente = exponenteDivisorMasCercano(divisorOptimo);
+    if (exponente > 7) exponente = 7;
+
     if (filt == FE_NINGUNO){
-        if (frecuenciaBase <= fs){
-            frecuenciaMuestreo = frecuenciaBase;
-            div_dts = 1;
-            div_samp = 1;
+        expDivDts = exponente < 2 ? exponente : 2;
+        expDivSamp = 0;
+    }else{
+        if (exponente <= 2){
+            expDivDts = 0;
+            expDivSamp = exponente;
         }else{
-            const uint32_t optimo = (frecuenciaBase + fs/2)/fs;
-            
+            expDivDts = 2;
+            expDivSamp = exponente - 2;
         }
     }
-    estableceBits(&regTempo->CCER,MASCARA_HAB);
+    unsigned bitsICF;
+    switch(expDivSamp){
+    case 0:
+        bitsICF = (filt == FE_NINGUNO)? 0b0000:
+                  (filt == FE_CORTO)?   0b0001:
+                  (filt == FE_MEDIO)?   0b0010:
+                                        0b0011;
+    break;case 1:
+        bitsICF = (filt == FE_CORTO)? 0b0100 : 0b0101;
+    break;case 2:
+        bitsICF = (filt == FE_CORTO)? 0b0110 : 0b0111;
+    break;case 3:
+        bitsICF = (filt == FE_CORTO)? 0b1000 : 0b1001;
+    break;case 4:
+        bitsICF = (filt == FE_CORTO)? 0b1010 :
+                  (filt == FE_MEDIO)? 0b1011 :
+                                      0b1100;
+    break;default: // 5
+        bitsICF = (filt == FE_CORTO)? 0b1101:
+                  (filt == FE_MEDIO)? 0b1110:
+                                      0b1111;
+    }
+    unsigned const bitsCKD = expDivDts;
+    unsigned const bitsSMS = (m+1)&3; 
+
+    regTempo->CR1 = (bitsCKD << TIM_CR1_CKD_Pos);
+    regTempo->CR2 = 0;
+    regTempo->SMCR = (bitsSMS << TIM_SMCR_SMS_Pos);
+    regTempo->CCER = polaridades;
+    regTempo->CCMR1 = (bitsICF << TIM_CCMR1_IC1F_Pos) 
+                     |(bitsICF << TIM_CCMR1_IC2F_Pos)
+                     |(0b01 << TIM_CCMR1_CC1S_Pos)
+                     |(0b01 << TIM_CCMR1_CC2S_Pos);
+    regTempo->PSC = pasosPorCuenta-1;
+    regTempo->CCER |= MASCARA_HAB;
+    frecuenciaMuestreo = frecuenciaBase >> (expDivDts + expDivSamp);
+    return frecuenciaMuestreo;
+}
+
+uint32_t TempoHW_enciendeContador(HTempoHW tempo)
+{
+    TIM_TypeDef *const regTempo = registrosTimer(tempo);
+    if (!regTempo) return TempoHW_ERROR_CONFIG;
+    enciendeRelojPeriferico(tempo);
+    estableceBits(&regTempo->CR1,TIM_CR1_CEN);
+    return 0;
+}
+
+uint32_t TempoHW_obtCuenta(HTempoHW tempo)
+{
+    TIM_TypeDef *const regTempo = registrosTimer(tempo);
+    if (!regTempo) return TempoHW_ERROR_CONFIG;
+    return regTempo->CNT;
 }
