@@ -2,6 +2,7 @@
 #include "tempo_hw.h"
 #include "tempo_ms.h"
 #include "paso_a_paso.h"
+#include "serie.h"
 
 enum {PERIODO_INT = 800};
 
@@ -18,8 +19,9 @@ static void salidaPAP(int abcd);
 
 int main(void)
 {
-    enum{T_ENCODER=THW3};
+    enum{T_ENCODER=TempoHW_3};
     PAP pap;
+    Serie_init(9600);
 
     Tempo_inicializa();
     Tempo_ponAccionMilisegundo(&parpadeo.accion);
@@ -30,7 +32,21 @@ int main(void)
 
     Pin_configuraEntrada(PA6,PULL_UP); // Timer 3 canal 1
     Pin_configuraEntrada(PA7,PULL_UP); // Timer 3 canal 2
-    TempoHW_configModoEncoder(T_ENCODER,ME_T1,10000,FE_LARGO,Polaridades_NN,2);
+    // Son posibles las frecuencias de muestreo que sean fracciones potencia de
+    // dos del reloj del bus periférico (8 MHz en este caso) con exponentes
+    // entre 0 y 7
+    // 8000000, 4000000, 2000000, 1000000, 500000, 250000, 125000, 62500
+    uint32_t frecuenciaMuestreo = TempoHW_configModoEncoder(
+        /*temporizador*/            T_ENCODER,
+        /*flancos detectados*/      THWModoEncoder_T1,
+        /*frecuencia de muestreo*/  125000,
+        /*filtro de entrada*/       THWFiltroEntrada_LARGO,
+        /*polaridades del encoder*/ THWPolaridadesEncoder_NN,
+        /*flancos por cuenta*/      2);
+    Serie_enviaCadena("Frecuencia de muestreo encoder ");
+    Serie_enviaEntero(frecuenciaMuestreo);
+    Serie_enviaNuevaLinea();
+
     TempoHW_enciendeContador(T_ENCODER);
     
     uint16_t p0 = TempoHW_obtCuenta(T_ENCODER);
@@ -66,7 +82,6 @@ static void Parpadeo_ejecuta(Accion *a)
         p->t0 = t;
     }
 }
-
 
 static void salidaPAP(int abcd)
 {
