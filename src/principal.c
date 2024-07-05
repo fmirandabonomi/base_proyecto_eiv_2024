@@ -1,92 +1,67 @@
 #include "gpio.h"
-#include "tempo_hw.h"
 #include "tempo_ms.h"
-#include "paso_a_paso.h"
 #include "serie.h"
+#include "teclado.h"
+#include "es_lcd.h"
 
-enum {PERIODO_INT = 800};
-
-static void Parpadeo_ejecuta(AccionParam *a, void *tp);
-
-static struct Parpadeo{
-    AccionParam accion;
-    uint32_t t0;
-    uint32_t semiperiodo;
-}parpadeo = {.accion.ejecuta=&Parpadeo_ejecuta, .semiperiodo = PERIODO_INT};
-
-
-static void salidaPAP(int abcd);
+static void seleccionaFilaTeclado(unsigned fila);
+static unsigned leeColumnasTeclado(void);
 
 int main(void)
 {
-    enum{T_ENCODER=TempoHW_3};
-    PAP pap;
-    Serie_init(9600);
-
+    static const char *reportesTecla[]={
+        [CodigoTecla_0]="Tecla 0 presionada! \n",
+        [CodigoTecla_1]="Tecla 1 presionada! \n",
+        [CodigoTecla_2]="Tecla 2 presionada! \n",
+        [CodigoTecla_3]="Tecla 3 presionada! \n",
+        [CodigoTecla_4]="Tecla 4 presionada! \n",
+        [CodigoTecla_5]="Tecla 5 presionada! \n",
+        [CodigoTecla_6]="Tecla 6 presionada! \n",
+        [CodigoTecla_7]="Tecla 7 presionada! \n",
+        [CodigoTecla_8]="Tecla 8 presionada! \n",
+        [CodigoTecla_9]="Tecla 9 presionada! \n",
+        [CodigoTecla_ASTERISCO]="Tecla * presionada! \n",
+        [CodigoTecla_NUMERAL]="Tecla # presionada! \n",
+        [CodigoTecla_NO_VALIDO]="Error al leer tecla! \n",
+    };
+    Teclado teclado;
     Tempo_inicializa();
-    Tempo_ponAccionMilisegundo(&parpadeo.accion);
-
-    PAP_inicializa(&pap,salidaPAP,true);
-    
+    Lcd *const miLcd = inicializaLcd();
+    Serie_init(9600);
     Pin_configuraSalida(PIN_LED,PUSH_PULL,V_BAJA);
-
-    Pin_configuraEntrada(PA6,PULL_UP); // Timer 3 canal 1
-    Pin_configuraEntrada(PA7,PULL_UP); // Timer 3 canal 2
-    // Son posibles las frecuencias de muestreo que sean fracciones potencia de
-    // dos del reloj del bus periférico (8 MHz en este caso) con exponentes
-    // entre 0 y 7
-    // 8000000, 4000000, 2000000, 1000000, 500000, 250000, 125000, 62500
-    uint32_t frecuenciaMuestreo = TempoHW_configModoEncoder(
-        /*temporizador*/            T_ENCODER,
-        /*flancos detectados*/      THWModoEncoder_T1,
-        /*frecuencia de muestreo*/  125000,
-        /*filtro de entrada*/       THWFiltroEntrada_LARGO,
-        /*polaridades del encoder*/ THWPolaridadesEncoder_NN,
-        /*flancos por cuenta*/      2);
-    Serie_enviaCadena("Frecuencia de muestreo encoder ");
-    Serie_enviaEntero(frecuenciaMuestreo);
-    Serie_enviaNuevaLinea();
-
-    TempoHW_enciendeContador(T_ENCODER);
-    
-    uint16_t p0 = TempoHW_obtCuenta(T_ENCODER);
-    uint32_t t0 = Tempo_obtMilisegundos();
-    int diferencia = 0;
-    for(;;){
-        const uint16_t p = TempoHW_obtCuenta(T_ENCODER);
-        const uint32_t t = Tempo_obtMilisegundos(); 
-        if (p!= p0){
-            diferencia += 5*(int16_t)(p-p0);
-            p0=p;
-        }
-        if(t-t0 >= 10 && diferencia != 0){
-            if (diferencia > 0){
-                PAP_avanza(&pap);
-                --diferencia;
-            }else{
-                PAP_retrocede(&pap);
-                ++diferencia;
-            }
-            t0=t;
+    Pin_ponAlto(PIN_LED);
+    Teclado_inicializa(&teclado,&seleccionaFilaTeclado,&leeColumnasTeclado);
+    Lcd_limpiaPantalla(miLcd);
+    Lcd_mueveAInicio(miLcd);
+    for(;;)
+    {
+        Tempo_esperaMilisegundos(10);
+        Teclado_procesa(&teclado);
+        if(Teclado_hayEntradaPendiente(&teclado)){
+            CodigoTecla cod = Teclado_obtEntrada(&teclado);
+            Pin_ponBajo(PIN_LED);
+            Lcd_mueveAInicio(miLcd);
+            Lcd_escribeCadena(miLcd,reportesTecla[cod]);
+            Serie_enviaCadena(reportesTecla[cod]);
+        }else{
+            Pin_ponAlto(PIN_LED);
         }
     }
     return 0;
 }
 
-static void Parpadeo_ejecuta(AccionParam *a,void *tp)
+
+static void seleccionaFilaTeclado(unsigned fila)
 {
-    struct Parpadeo *const p = (struct Parpadeo*)a;
-    const uint32_t t = *(uint32_t*)tp;
-    if ( t - p->t0 >= p->semiperiodo){
-        Pin_conmuta(PIN_LED);
-        p->t0 = t;
-    }
+    static Bus filas = INICIALIZA_VARIABLE_BUS(PULL_UP,DRENADOR_ABIERTO,V_BAJA,
+    PA5,PA6,PA7,PB0);
+    Bus_escribe(&filas,~(0b1000UL >> fila));
 }
-
-static void salidaPAP(int abcd)
+static unsigned leeColumnasTeclado(void)
 {
-    static Bus conexionMotor = INICIALIZA_VARIABLE_BUS(PULL_UP,PUSH_PULL,V_BAJA,
-                    PB6,PB7,PB8,PB9);
-
-    Bus_escribe(&conexionMotor,abcd);
+    static Bus columnas = INICIALIZA_VARIABLE_BUS(PULL_UP,DRENADOR_ABIERTO,V_BAJA,
+    PB1,PB10,PB11);
+    unsigned valor;
+    Bus_lee(&columnas, &valor);
+    return valor;
 }
