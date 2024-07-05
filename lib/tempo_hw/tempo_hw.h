@@ -125,7 +125,13 @@ uint32_t TempoHW_configReloj(TempoHW tempo,uint32_t frec);
  * @retval La frecuencia de muestreo efectiva si la configuración fue
  * correcta
  */
-uint32_t TempoHW_configModoEncoder(TempoHW tempo,TempoHW_ModoEncoder m,uint32_t fs, TempoHW_FiltroEntrada filt, TempoHW_PolaridadesEncoder pol,uint16_t pasosPorCuenta);
+uint32_t TempoHW_configModoEncoder(
+    TempoHW tempo,
+    TempoHW_ModoEncoder m,
+    uint32_t fs, 
+    TempoHW_FiltroEntrada filt, 
+    TempoHW_PolaridadesEncoder pol,
+    uint16_t pasosPorCuenta);
 
 
 /**
