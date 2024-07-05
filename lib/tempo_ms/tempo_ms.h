@@ -31,13 +31,14 @@ void Tempo_esperaMilisegundos(uint32_t tiempo);
 /**
  * @brief Configura una acción que se ejecutará cada milisegudo. Nota: La acción
  * se ejecutará en modo Handler. Solo puede haber una acción configurada por vez,
- * Tempo_eliminaAccionMilisegundo puede quitar la acción actual.
+ * Tempo_eliminaAccionMilisegundo puede quitar la acción actual. El parámetro de
+ * la acción es un puntero al valor de cuenta de milisegundos tipo uint32_t
  * 
  * @param accion La accion
  * @retval 0 Se ha configurado la acción
  * @retval -1 Error al configurar la acción 
  */
-int Tempo_ponAccionMilisegundo(Accion *accion);
+int Tempo_ponAccionMilisegundo(AccionParam *accion);
 
 /**
  * @brief Quita la acción a ejecutar cada milisegundo.

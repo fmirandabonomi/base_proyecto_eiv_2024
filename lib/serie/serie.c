@@ -1,51 +1,20 @@
 #include "serie.h"
+#include "gpio.h"
 #include <stm32f1xx.h>
 #include <stdbool.h>
 #include <ctype.h>
-
-typedef enum {
-    PIN_ENTRADA_FLOTANTE = 0b0100, // Valor por defecto
-    PIN_ENTRADA_PULLUP = 0b11000,
-    PIN_SALIDA_ALT_LENTO_PP = 0b1010,
-} ModoPin;
-
-static void configPin(GPIO_TypeDef *registros,int pin,ModoPin modo){
-    int const offset = (pin & 7) * 4;
-    enum {MASCARA_FNMOD = 0b1111,
-          MASCARA_PULLUP=0b10000,
-          MASCARA_MOD=0b11};
-    volatile uint32_t * const CR = pin > 7 ? &registros->CRH :
-                                             &registros->CRL; 
-    *CR =  (*CR & ~(MASCARA_FNMOD << offset)) 
-         | ((MASCARA_FNMOD & modo) << offset);
-
-    const int modoEntrada = !(modo & MASCARA_MOD);
-    if (modoEntrada){
-        if (modo & MASCARA_PULLUP){
-            registros->BSRR = 1<<pin;
-        }else{
-            registros->BRR = 1<<pin;
-        }
-    }
-}
-
-static void Serie_esperaTxEmpty(void){
-    while(!(USART1->SR & USART_SR_TXE));
-}
-
-static void Serie_esperaRxNotEmpty(void){
-    while(!(USART1->SR & USART_SR_RXNE));
-}
+#include <assert.h>
+#include <stdatomic.h>
+#include <acceso_esclusivo.h>
 
 
 int Serie_init(int baudrate){
     int error = -1;
     SystemCoreClockUpdate();
 
-    RCC->APB2ENR |= RCC_APB2ENR_IOPAEN | RCC_APB2ENR_USART1EN;
-    
-    configPin(GPIOA,9,PIN_SALIDA_ALT_LENTO_PP);
-    configPin(GPIOA,10,PIN_ENTRADA_PULLUP);
+    estableceBits(&RCC->APB2ENR,RCC_APB2ENR_USART1EN);    
+    Pin_configuraSalida(PA9,PUSH_PULL | FUNCION_ALTERNATIVA,V_BAJA);
+    Pin_configuraEntrada(PA10,PULL_UP);
 
     const uint32_t divisor = SystemCoreClock/baudrate;
 
@@ -59,15 +28,15 @@ int Serie_init(int baudrate){
     }
     USART1->CR2 = 0;
     USART1->CR3 = 0;
-    USART1->CR1 = USART_CR1_UE | USART_CR1_TE | USART_CR1_RE; 
+    USART1->CR1 = USART_CR1_UE | USART_CR1_TE | USART_CR1_RE;
     return error;
 }
 
 
 
 void Serie_enviaCaracter(int c){
-    Serie_esperaTxEmpty();
-    USART1->DR = c & 0xFF;
+    while(!(USART1->SR & USART_SR_TXE));
+    USART1->DR = c&0xFF;
 }
 
 /**
@@ -145,9 +114,10 @@ void Serie_enviaCadena(const char *cadena){
 }
 
 int Serie_recibeCaracter(void){
-    Serie_esperaRxNotEmpty();
+    while(!(USART1->SR & USART_SR_RXNE));
     return USART1->DR;
 }
+
 /**
  * @brief Recibe e ignora cero o más espacios en blanco. Recibe y almacena hasta
  * tamanoBuffer-1 caracteres que no sean espacio en blanco. Al recibir el
@@ -182,6 +152,6 @@ void Serie_flush(void){
 void Serie_deinit(void){
     Serie_flush();
     USART1->CR1 = 0;
-    configPin(GPIOA,9,PIN_ENTRADA_FLOTANTE);
-    configPin(GPIOA,10,PIN_ENTRADA_FLOTANTE);
+    Pin_configuraEntrada(PA9,FLOTANTE);
+    Pin_configuraEntrada(PA10,FLOTANTE);
 }

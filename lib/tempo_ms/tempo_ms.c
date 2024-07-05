@@ -21,18 +21,18 @@ void Tempo_esperaMilisegundos(uint32_t tiempo)
     while(ticks-inicial < tiempo);
 }
 
-static Accion *accionMilisegundo = NULL;
+static AccionParam *accionMilisegundo = NULL;
 
 void SysTick_Handler(void)
 {
-    ++ticks;
+    uint32_t t = ++ticks;
     if(accionMilisegundo){
-        Accion_ejecuta(accionMilisegundo);
-    }    
+        AccionParam_ejecuta(accionMilisegundo,&t);
+    }
 }
 
 
-int Tempo_ponAccionMilisegundo(Accion *accion)
+int Tempo_ponAccionMilisegundo(AccionParam *accion)
 {
     if (accionMilisegundo || !accion) return -1;
     accionMilisegundo = accion;

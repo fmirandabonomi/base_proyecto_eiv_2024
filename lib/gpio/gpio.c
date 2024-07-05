@@ -2,27 +2,10 @@
 #include <stm32f1xx.h>
 #include <stddef.h>
 #include <assert.h>
+#include "acceso_esclusivo.h"
 
 typedef enum HPuerto{PA,PB,PC,HPuerto_INVALIDO}HPuerto;
 static_assert((int)HPuerto_INVALIDO == (int)NUM_PUERTOS,"Número de puertos incorrecto");
-__attribute__((__always_inline__))
-inline static void modificaBits(volatile uint32_t *registro,uint32_t mascara,uint32_t valor)
-{
-    bool fallo;
-    do{
-        const uint32_t anterior = __LDREXW(registro);
-        fallo = __STREXW((anterior & ~mascara)|(valor & mascara),registro);
-    }while(fallo);
-}
-__attribute__((__always_inline__))
-inline static void estableceBits(volatile uint32_t *registro,uint32_t bits)
-{
-    bool fallo;
-    do{
-        const uint32_t anterior = __LDREXW(registro);
-        fallo = __STREXW(anterior | bits,registro);
-    }while(fallo);
-}
 
 __attribute__((__always_inline__))
 inline static HPuerto obtHPuerto(HPin p)

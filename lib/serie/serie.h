@@ -77,4 +77,5 @@ int Serie_recibeCaracter(void);
  * @return int cantidad de caracteres leidos
  */
 int Serie_recibePalabra(char *buffer,int tamanoBuffer);
+
 #endif

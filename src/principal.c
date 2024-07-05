@@ -6,10 +6,10 @@
 
 enum {PERIODO_INT = 800};
 
-static void Parpadeo_ejecuta(Accion *a);
+static void Parpadeo_ejecuta(AccionParam *a, void *tp);
 
 static struct Parpadeo{
-    Accion accion;
+    AccionParam accion;
     uint32_t t0;
     uint32_t semiperiodo;
 }parpadeo = {.accion.ejecuta=&Parpadeo_ejecuta, .semiperiodo = PERIODO_INT};
@@ -56,10 +56,10 @@ int main(void)
         const uint16_t p = TempoHW_obtCuenta(T_ENCODER);
         const uint32_t t = Tempo_obtMilisegundos(); 
         if (p!= p0){
-            diferencia += 16*(int16_t)(p-p0);
+            diferencia += 5*(int16_t)(p-p0);
             p0=p;
         }
-        if(t-t0 >= 5 && diferencia != 0){
+        if(t-t0 >= 10 && diferencia != 0){
             if (diferencia > 0){
                 PAP_avanza(&pap);
                 --diferencia;
@@ -73,10 +73,10 @@ int main(void)
     return 0;
 }
 
-static void Parpadeo_ejecuta(Accion *a)
+static void Parpadeo_ejecuta(AccionParam *a,void *tp)
 {
-    struct Parpadeo *const p = (struct Parpadeo*)a; 
-    const uint32_t t = Tempo_obtMilisegundos();
+    struct Parpadeo *const p = (struct Parpadeo*)a;
+    const uint32_t t = *(uint32_t*)tp;
     if ( t - p->t0 >= p->semiperiodo){
         Pin_conmuta(PIN_LED);
         p->t0 = t;

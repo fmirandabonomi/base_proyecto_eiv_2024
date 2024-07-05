@@ -2,58 +2,32 @@
 #include <stm32f1xx.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include "acceso_esclusivo.h"
 
 enum{PERIODO_MAX = 65535};
 
 typedef enum TempoHW_RelojMuestreo{
-    THW_MUESTREO_FCK,
-    THW_MUESTREO_DTS_DIV_2,
-    THW_MUESTREO_DTS_DIV_4,
-    THW_MUESTREO_DTS_DIV_8,
-    THW_MUESTREO_DTS_DIV_16,
-    THW_MUESTREO_DTS_DIV_32,
-    TempoHW_RelojMuestreo_NO_VALIDO
+    THWRelojMuestreo_FCK,
+    THWRelojMuestreo_DTS_DIV_2,
+    THWRelojMuestreo_DTS_DIV_4,
+    THWRelojMuestreo_DTS_DIV_8,
+    THWRelojMuestreo_DTS_DIV_16,
+    THWRelojMuestreo_DTS_DIV_32,
+    THWRelojMuestreo_NO_VALIDO
 }TempoHW_RelojMuestreo;
 
 typedef enum TempoHW_ModoComparacion{
-    THWMC_CONGELADO,
-    THWMC_PON_ALTO_AL_COINCIDIR,
-    THWMC_PON_BAJO_AL_COINCIDIR,
-    THWMC_CONMUTA_AL_COINCIDIR,
-    THWMC_FUERZA_BAJO,
-    THWMC_FUERZA_ALTO,
-    THWMC_PWM_MODO_1,
-    THWMC_PWM_MODO_2,
-    TempoHW_ModoComparacion_NO_VALIDO
+    THWModoComparacion_CONGELADO,
+    THWModoComparacion_PON_ALTO_AL_COINCIDIR,
+    THWModoComparacion_PON_BAJO_AL_COINCIDIR,
+    THWModoComparacion_CONMUTA_AL_COINCIDIR,
+    THWModoComparacion_FUERZA_BAJO,
+    THWModoComparacion_FUERZA_ALTO,
+    THWModoComparacion_PWM_MODO_1,
+    THWModoComparacion_PWM_MODO_2,
+    THWModoComparacion_NO_VALIDO
 }TempoHW_ModoComparacion;
 
-__attribute__((__always_inline__))
-inline static void modificaBits(volatile uint32_t *registro,uint32_t mascara,uint32_t valor)
-{
-    bool fallo;
-    do{
-        const uint32_t anterior = __LDREXW(registro);
-        fallo = __STREXW((anterior & ~mascara)|(valor & mascara),registro);
-    }while(fallo);
-}
-__attribute__((__always_inline__))
-inline static void estableceBits(volatile uint32_t *registro,uint32_t bits)
-{
-    bool fallo;
-    do{
-        const uint32_t anterior = __LDREXW(registro);
-        fallo = __STREXW(anterior | bits,registro);
-    }while(fallo);
-}
-__attribute__((__always_inline__))
-inline static void limpiaBits(volatile uint32_t *registro,uint32_t bits)
-{
-    bool fallo;
-    do{
-        const uint32_t anterior = __LDREXW(registro);
-        fallo = __STREXW(anterior & ~bits,registro);
-    }while(fallo);
-}
 
 __attribute__((__always_inline__))
 static inline void enciendeCanal(
@@ -136,7 +110,8 @@ static uint32_t relojTimer(const TempoHW t)
 {
     SystemCoreClockUpdate();
     uint32_t reloj = SystemCoreClock;
-    const int posPpre = (t==TempoHW_1)? RCC_CFGR_PPRE2_Pos : RCC_CFGR_PPRE1_Pos;
+    const int posPpre = (t==TempoHW_1)? RCC_CFGR_PPRE2_Pos :
+                                        RCC_CFGR_PPRE1_Pos;
     const uint32_t ppre = (RCC->CFGR >> posPpre)&0b111;
     if (ppre & (1<<2)){
         reloj >>= ((ppre&0b11)+1) - 1;
@@ -224,25 +199,30 @@ uint32_t TempoHW_configModoEncoder(
     }
     unsigned bitsICF;
     switch(expDivSamp){
-    case 0:
+    case THWRelojMuestreo_FCK:
         bitsICF = (filt == THWFiltroEntrada_NINGUNO)? 0b0000:
                   (filt == THWFiltroEntrada_CORTO)?   0b0001:
                   (filt == THWFiltroEntrada_MEDIO)?   0b0010:
-                                        0b0011;
-    break;case 1:
-        bitsICF = (filt == THWFiltroEntrada_CORTO)? 0b0100 : 0b0101;
-    break;case 2:
-        bitsICF = (filt == THWFiltroEntrada_CORTO)? 0b0110 : 0b0111;
-    break;case 3:
-        bitsICF = (filt == THWFiltroEntrada_CORTO)? 0b1000 : 0b1001;
-    break;case 4:
-        bitsICF = (filt == THWFiltroEntrada_CORTO)? 0b1010 :
-                  (filt == THWFiltroEntrada_MEDIO)? 0b1011 :
-                                      0b1100;
-    break;default: // 5
-        bitsICF = (filt == THWFiltroEntrada_CORTO)? 0b1101:
-                  (filt == THWFiltroEntrada_MEDIO)? 0b1110:
-                                      0b1111;
+                                                      0b0011;
+    break;case THWRelojMuestreo_DTS_DIV_2:
+        bitsICF = (filt == THWFiltroEntrada_CORTO)?   0b0100:
+                                                      0b0101;
+    break;case THWRelojMuestreo_DTS_DIV_4:
+        bitsICF = (filt == THWFiltroEntrada_CORTO)?   0b0110:
+                                                      0b0111;
+    break;case THWRelojMuestreo_DTS_DIV_8:
+        bitsICF = (filt == THWFiltroEntrada_CORTO)?   0b1000:
+                                                      0b1001;
+    break;case THWRelojMuestreo_DTS_DIV_16:
+        bitsICF = (filt == THWFiltroEntrada_CORTO)?   0b1010 :
+                  (filt == THWFiltroEntrada_MEDIO)?   0b1011 :
+                                                      0b1100;
+    break;case THWRelojMuestreo_DTS_DIV_32:
+        bitsICF = (filt == THWFiltroEntrada_CORTO)?   0b1101:
+                  (filt == THWFiltroEntrada_MEDIO)?   0b1110:
+                                                      0b1111;
+    default:
+        for(;;); // Error
     }
     unsigned const bitsCKD = expDivDts;
     unsigned const bitsSMS = (m+1)&3; 
@@ -306,22 +286,22 @@ static uint32_t calculaConfigCaptura(
 {
     uint32_t bitsICF;
     switch(relojMuestreo){
-    case THW_MUESTREO_FCK:
+    case THWRelojMuestreo_FCK:
         bitsICF = (filt == THWFiltroEntrada_NINGUNO)? 0b0000:
                   (filt == THWFiltroEntrada_CORTO)?   0b0001:
                   (filt == THWFiltroEntrada_MEDIO)?   0b0010:
                                         0b0011;
-    break;case THW_MUESTREO_DTS_DIV_2:
+    break;case THWRelojMuestreo_DTS_DIV_2:
         bitsICF = (filt == THWFiltroEntrada_CORTO)? 0b0100 : 0b0101;
-    break;case THW_MUESTREO_DTS_DIV_4:
+    break;case THWRelojMuestreo_DTS_DIV_4:
         bitsICF = (filt == THWFiltroEntrada_CORTO)? 0b0110 : 0b0111;
-    break;case THW_MUESTREO_DTS_DIV_8:
+    break;case THWRelojMuestreo_DTS_DIV_8:
         bitsICF = (filt == THWFiltroEntrada_CORTO)? 0b1000 : 0b1001;
-    break;case THW_MUESTREO_DTS_DIV_16:
+    break;case THWRelojMuestreo_DTS_DIV_16:
         bitsICF = (filt == THWFiltroEntrada_CORTO)? 0b1010 :
                   (filt == THWFiltroEntrada_MEDIO)? 0b1011 :
                                       0b1100;
-    break;default: // THW_MUESTREO_DTS_DIV_32
+    break;default: // THWRelojMuestreo_DTS_DIV_32
         bitsICF = (filt == THWFiltroEntrada_CORTO)? 0b1101:
                   (filt == THWFiltroEntrada_MEDIO)? 0b1110:
                                       0b1111;
@@ -386,11 +366,11 @@ uint32_t TempoHW_configPwm(
     configuraCuenta(regTempo,modoCuenta,cuentaMaxima);    
     apagaCanal(regTempo,canal);
     configuraCanal(regTempo,canal,
-        calculaConfigCompara(false, 
-            (modoPwm == THWModoPWM_ACTIVO_IZQUIERDA) ? THWMC_PWM_MODO_1:
-                                                     THWMC_PWM_MODO_2,
-                            false,
-                            false));
+     calculaConfigCompara(false, 
+       (modoPwm == THWModoPWM_ACTIVO_IZQUIERDA) ? THWModoComparacion_PWM_MODO_1:
+                                                  THWModoComparacion_PWM_MODO_2,
+       false,
+       false));
     CCRs[canal] = umbral;
     regTempo->ARR = cuentaMaxima;
     enciendeCanal(regTempo,canal);
@@ -439,9 +419,9 @@ uint32_t TempoHW_configCaptura(
     const uint8_t expDivDts = (regTempo->CR1 & TIM_CR1_CKD) >> TIM_CR1_CKD_Pos;
     int expDivRestante = expDiv - expDivDts;
     const TempoHW_RelojMuestreo relojMuestreo = 
-        (expDivRestante < 1) ? THW_MUESTREO_FCK:
-        (expDivRestante < 5) ? expDivRestante + THW_MUESTREO_FCK:
-                               THW_MUESTREO_DTS_DIV_32;
+        (expDivRestante < 1) ? THWRelojMuestreo_FCK:
+        (expDivRestante < 5) ? expDivRestante + THWRelojMuestreo_FCK:
+                               THWRelojMuestreo_DTS_DIV_32;
     configuraCanal(regTempo,canal,
         calculaConfigCaptura(filtro,
                              relojMuestreo,
@@ -449,7 +429,7 @@ uint32_t TempoHW_configCaptura(
                              flancosPorCaptura));
     configuraAccionCanal(tempo,canal,accion);
     enciendeCanal(regTempo,canal);
-    return (relojMuestreo == THW_MUESTREO_FCK) ? frecBase :
+    return (relojMuestreo == THWRelojMuestreo_FCK) ? frecBase :
                                                  frecBase 
                                                     >> (expDivDts 
                                                         + relojMuestreo);
