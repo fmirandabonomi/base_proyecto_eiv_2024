@@ -33,6 +33,10 @@ int main(void)
     Teclado_inicializa(&teclado,&seleccionaFilaTeclado,&leeColumnasTeclado);
     Lcd_limpiaPantalla(miLcd);
     Lcd_mueveAInicio(miLcd);
+    Lcd_escribeCadena(miLcd,"Hola Mundo!");
+    Lcd_establecePosicion(miLcd,1,0);
+    Lcd_escribeCadena(miLcd,"0123456789ABCDEF");
+
     for(;;)
     {
         Tempo_esperaMilisegundos(10);

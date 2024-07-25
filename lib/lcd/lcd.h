@@ -26,5 +26,7 @@ void Lcd_escribeCadena(Lcd *lcd,const char *cadena);
 
 void Lcd_establecePosicion(Lcd *lcd,unsigned fila,unsigned col);
 
+void Lcd_enciendePantalla(Lcd *lcd);
+void Lcd_apagaPantalla(Lcd *lcd);
 
 #endif // LCD_H
