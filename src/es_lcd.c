@@ -27,38 +27,27 @@ Lcd *inicializaLcd(void)
     return &miLcd;
 }
 
-static void esperaListo(void)
+static void escribe4bit(uint8_t valor, bool RS)
 {
-    unsigned aux=0;
-    Bus_ponModoEntrada(&datos);
-    do{
-        Bus_escribe(&control,CTRL_RW);
-        Bus_escribe(&control,CTRL_RW|CTRL_E);
-        Bus_lee(&datos,&aux);
-        Bus_escribe(&control,CTRL_RW);
-        Bus_escribe(&control,CTRL_RW|CTRL_E);
-    }while(aux & BUSY);
+    const unsigned modo = RS? CTRL_RS : 0;
+    Bus_escribe(&datos, valor);
+    Bus_escribe(&control,modo);
+    Tempo_esperaMicrosegundos(1);
+    Bus_escribe(&control,modo|CTRL_E);
+    Tempo_esperaMicrosegundos(1);
+    Bus_escribe(&control,modo);
+    Tempo_esperaMicrosegundos(100);
 }
 
 static void escribeValor(uint8_t valor, bool RS)
 {
-    const unsigned modo = RS? CTRL_RS : 0;
-    esperaListo();
-    Bus_escribe(&control,modo);
-    Bus_escribe(&datos, valor>>4);
-    Bus_escribe(&control,modo|CTRL_E);
-    Bus_escribe(&control,modo);
-    Bus_escribe(&datos, valor);
-    Bus_escribe(&control,modo|CTRL_E);
-    Bus_escribe(&control,modo);
-    Bus_escribe(&control,0);
-    Bus_escribe(&datos,0);
+    escribe4bit(valor>>4,RS);
+    escribe4bit(valor&0xF,RS);
 }
 
 static void enviaComando(uint8_t cmd)
 {
     escribeValor(cmd,false);
-
 }
 static void enviaDato(uint8_t dat)
 {
@@ -66,12 +55,14 @@ static void enviaDato(uint8_t dat)
 }
 static void configuraModo(void)
 {
-    Bus_escribe(&control,0);
-    Bus_escribe(&datos,0b10); // Modo 4 bit
-    Tempo_esperaMilisegundos(40);
-    Bus_escribe(&control,CTRL_E);
-    Bus_escribe(&control,CTRL_E);
-    Bus_escribe(&control,0);
-    Bus_escribe(&control,0);
+    Tempo_esperaMilisegundos(50);
+    escribe4bit(0b11,false);
+    Tempo_esperaMicrosegundos(4500);
+    escribe4bit(0b11,false);
+    Tempo_esperaMicrosegundos(4500);
+    escribe4bit(0b11,false);
+    Tempo_esperaMicrosegundos(150);
+    escribe4bit(0b10,false);
+    Tempo_esperaMicrosegundos(150);
     enviaComando(0b101000); // 2 líneas, fuente 5x8
 }

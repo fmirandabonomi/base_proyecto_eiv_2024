@@ -46,4 +46,5 @@ int Tempo_ponAccionMilisegundo(AccionParam *accion);
  */
 void Tempo_eliminaAccionMilisegundo(void);
 
+void Tempo_esperaMicrosegundos(uint32_t t);
 #endif // TEMPORIZACION_SW_H

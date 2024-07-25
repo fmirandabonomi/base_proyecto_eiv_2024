@@ -1,4 +1,5 @@
 #include "lcd.h"
+#include "tempo_ms.h"
 
 void Lcd_inicializa(
   Lcd *lcd,
@@ -15,11 +16,13 @@ void Lcd_inicializa(
 void Lcd_limpiaPantalla(Lcd *lcd)
 {
   lcd->enviaComando(1);
+  Tempo_esperaMilisegundos(2);
 }
 
 void Lcd_mueveAInicio(Lcd *lcd)
 {
   lcd->enviaComando(0b10);
+  Tempo_esperaMilisegundos(2);
 }
 
 void Lcd_escribeCadena(Lcd *lcd,const char *cadena)
